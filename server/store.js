@@ -22,3 +22,12 @@ export function withAccountLock(fn){mkdirSync(dir,{recursive:true});const lock=r
 const conversationsFile = resolve(dir, 'conversations.json');
 export function readConversations(){try{return JSON.parse(readFileSync(conversationsFile,'utf8'))}catch(e){if(e.code==='ENOENT')return [];throw e}}
 export function writeConversations(conversations){mkdirSync(dir,{recursive:true});const temp=conversationsFile+'.'+randomBytes(8).toString('hex')+'.tmp';writeFileSync(temp,JSON.stringify(conversations,null,2),{mode:0o600});renameSync(temp,conversationsFile)}
+
+function readCollection(name){try{return JSON.parse(readFileSync(resolve(dir,name+'.json'),'utf8'))}catch(e){if(e.code==='ENOENT')return [];throw e}}
+function writeCollection(name,value){mkdirSync(dir,{recursive:true});const file=resolve(dir,name+'.json'),temp=file+'.'+randomBytes(8).toString('hex')+'.tmp';writeFileSync(temp,JSON.stringify(value,null,2),{mode:0o600});renameSync(temp,file)}
+export const readReports=()=>readCollection('reports');
+export const writeReports=data=>writeCollection('reports',data);
+export const readReviews=()=>readCollection('reviews');
+export const writeReviews=data=>writeCollection('reviews',data);
+export const readNotifications=()=>readCollection('notifications');
+export const writeNotifications=data=>writeCollection('notifications',data);
