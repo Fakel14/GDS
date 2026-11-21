@@ -1,0 +1,20 @@
+import {mkdtempSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';import {spawn,spawnSync} from 'node:child_process';import {once} from 'node:events';import assert from 'node:assert/strict';
+const dir=mkdtempSync(join(tmpdir(),'gds-orders-')),env={...process.env,GDS_DATA_DIR:dir,PORT:'31994'};
+const run=(...args)=>spawnSync(process.execPath,['server/admin.js',...args],{env,encoding:'utf8'});const create=n=>{const r=run('create',n);assert.equal(r.status,0);return {id:r.stdout.match(/ID: (.+)/)[1],code:r.stdout.match(/Код: (.+)/)[1]}};
+const admin=create('Fakelo4ik'),seller=create('Seller'),buyer=create('Buyer'),other=create('Other');assert.equal(run('grant-admin',admin.id).status,0);
+const server=spawn(process.execPath,['server/index.js'],{env,stdio:['ignore','pipe','inherit']});
+try{await once(server.stdout,'data');const base='http://localhost:31994';const req=async(path,method='GET',data,cookie='')=>{const r=await fetch(base+path,{method,headers:{origin:base,'content-type':'application/json',cookie},body:data===undefined?undefined:JSON.stringify(data)});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]}};const login=async(a)=>{const r=await req('/api/login','POST',a);assert.equal(r.status,200);return r.cookie};const ac=await login(admin),sc=await login(seller),bc=await login(buyer),oc=await login(other);
+ const fields={title:'Музыка',category:'Ремикс',price:400,description:'Описание',comment:'Частная заметка',paymentMethod:'СБП',paymentDetails:'Банк, телефон +7 999 000-00-00'};
+ assert.equal((await req('/api/listings','POST',fields,sc)).status,403);
+ let request=await req('/api/seller-request','POST',{},sc);assert.equal(request.status,200);assert.notEqual(request.data.requestCode,seller.code);
+ assert.notEqual(run('approve-seller',seller.id,seller.code).status,0);let next=await req('/api/seller-request','POST',{},sc);assert.notEqual(run('approve-seller',seller.id,request.data.requestCode).status,0);assert.equal(run('approve-seller',seller.id,next.data.requestCode).status,0);assert.notEqual(run('approve-seller',seller.id,next.data.requestCode).status,0);
+ assert.equal((await req('/api/session','GET',undefined,sc)).data.user.isSeller,true);assert.equal((await req('/api/login','POST',{id:seller.id,code:next.data.requestCode})).status,401);
+ let listing=(await req('/api/listings','POST',fields,sc)).data.listing;await req('/api/listings/'+listing.id+'/approve','POST',{},ac);
+ let pub=(await req('/api/listings')).data.listings[0];assert.equal(pub.paymentMethod,'СБП');assert.equal(pub.paymentDetails,undefined);assert.equal((await req('/api/profiles/Seller')).data.listings[0].paymentDetails,undefined);
+ const c=(await req('/api/conversations','POST',{listingId:listing.id},bc)).data.conversation;assert.equal(c.payment,undefined);
+ const root='/api/conversations/'+c.id;assert.equal((await req(root+'/order/confirm','POST',{},bc)).status,403);assert.equal((await req(root+'/order/request','POST',{},sc)).status,403);assert.equal((await req(root+'/order/request','POST',{},bc)).status,200);
+ assert.equal((await req(root,'GET',undefined,bc)).data.conversation.payment,undefined);assert.equal((await req(root+'/order/confirm','POST',{},oc)).status,403);assert.equal((await req(root+'/order/confirm','POST',{},sc)).status,200);
+ let confirmed=(await req(root,'GET',undefined,bc)).data.conversation;assert.deepEqual(confirmed.payment,{method:fields.paymentMethod,details:fields.paymentDetails});assert.equal((await req(root,'GET',undefined,oc)).status,403);
+ assert.equal((await req('/api/profiles/Seller/ban','POST',{},ac)).status,200);assert.equal((await req(root,'GET',undefined,bc)).data.conversation.payment,undefined);
+ console.log('Buyer/seller approval and payment disclosure passed');
+}finally{server.kill();rmSync(dir,{recursive:true,force:true})}

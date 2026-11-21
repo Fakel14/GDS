@@ -9,7 +9,8 @@
     "build": "vite build",
     "start": "node server/index.js",
     "account:create": "node server/admin.js create",
-    "account:admin": "node server/admin.js grant-admin"
+    "account:admin": "node server/admin.js grant-admin",
+    "account:approve-seller": "node server/admin.js approve-seller"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
