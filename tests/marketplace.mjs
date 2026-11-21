@@ -13,8 +13,9 @@ try{
  await once(server.stdout,'data');const base='http://localhost:31992';
  const req=async(path,method='GET',data,cookie='')=>{const r=await fetch(base+path,{method,headers:{origin:base,'content-type':'application/json',cookie},body:data===undefined?undefined:JSON.stringify(data)});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]}};
  const login=async(a)=>{const r=await req('/api/login','POST',a);assert.equal(r.status,200);return r.cookie};const ac=await login(admin),bc=await login(bob),uc=await login(alice);
+ const sr=await req('/api/seller-request','POST',{},uc);assert.equal(sr.status,200);assert.equal(run('approve-seller',alice.id,sr.data.requestCode).status,0);
  assert.equal((await req('/api/listings/pending','GET',undefined,uc)).status,403);
- const fields={title:'Тест',category:'Ремикс',price:123,description:'Описание',comment:'Секрет'};
+ const fields={title:'Тест',category:'Ремикс',price:123,description:'Описание',comment:'Секрет',paymentMethod:'СБП',paymentDetails:'123' };
  assert.equal((await req('/api/listings','POST',fields)).status,401);
  const ids=[];for(let i=0;i<3;i++){let r=await req('/api/listings','POST',fields,uc);assert.equal(r.status,201);ids.push(r.data.listing.id)}
  assert.equal((await req('/api/listings','POST',fields,uc)).status,409);
