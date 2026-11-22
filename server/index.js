@@ -3,6 +3,7 @@ import {startBackups} from './backup.js';
 import {randomBytes, randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
+import {resolveStaticPath} from './static-path.js';
 import {readAccounts,writeAccounts,checkCode,hashCode,isSeller,readListings,writeListings,nicknameKey,isAdmin,withAccountLock,readConversations,writeConversations,readReports,writeReports,readReviews,writeReviews,readNotifications,writeNotifications} from './store.js';
 const sessions=new Map(), attempts=new Map();
 const port=Number(process.env.PORT||3001); const secure=process.env.COOKIE_SECURE==='true';
@@ -95,7 +96,7 @@ const server=http.createServer(async(req,res)=>{try{
   return respond(res,404,{error:'Не найдено'});
  }
  if(req.method!=='GET')return respond(res,405,{error:'Метод не поддерживается'});
- const root=resolve('dist');let file=resolve(root,'.'+(path==='/'?'/index.html':path));if(!file.startsWith(root+'/'))return respond(res,404,{error:'Не найдено'});
+ const root=resolve('dist');const file=resolveStaticPath(root,path);if(!file)return respond(res,404,{error:'Не найдено'});
  try{const data=await readFile(file);const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png'};res.writeHead(200,{'Content-Type':mime[extname(file)]||'application/octet-stream'});res.end(data)}catch{respond(res,404,{error:'Не найдено. Соберите сайт командой npm run build.'})}
  }catch(e){console.error(e);respond(res,400,{error:'Не удалось обработать запрос'})}});
 startBackups();
